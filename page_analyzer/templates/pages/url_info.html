@@ -1,0 +1,41 @@
+{% extends "main_layout.html" %}
+{% block title %}Анализатор страниц{% endblock %}
+{% block main %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert alert-{{ category }}" role="alert" >{{ message }}</div>
+  {% endfor %}
+{% endif %}
+<h1>SITE</h1>
+<table  class="table table-bordered table-hover text-nowrap" data-test="url">
+    <tr>
+        <td>ID</td>
+        <td>{{url_data[0]}}</td>
+    </tr>
+    <tr>
+        <td>Имя</td>
+        <td>{{url_data[1]}}</td>
+    </tr>
+    <tr>
+        <td>Дата создания</td>
+        <td>{{url_data[2]}}</td>
+    </tr>
+</table>
+<h2>Проверки</h2>
+<button type="submit" class="btn btn-primary">Запустить проверку</button>
+<table class="table table-bordered table-hover mt-2" data-test="checks">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Код ответа</th>
+        <th>h1</th>
+        <th>title</th>
+        <th>description</th>
+        <th>Дата создания</th>
+      </tr>
+    </thead>
+      <tbody>
+
+    </tbody>
+    </table>
+{% endblock %}
