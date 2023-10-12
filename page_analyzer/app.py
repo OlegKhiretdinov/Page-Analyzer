@@ -29,6 +29,7 @@ def urls_list():
     with conn.cursor() as cursor:
         cursor.execute('SELECT id, name FROM URLS ORDER BY created_at ASC')
         urls = cursor.fetchall()
+    conn.close()
 
     messages = get_flashed_messages(with_categories=True)
 
@@ -49,24 +50,23 @@ def add_urls():
         return redirect(url_for('home_page'), 302)
     elif len(url) > 255:
         flash('URL превышает 255 символов', 'danger')
-        return redirect(url_for('home_page'), 301)
+        return redirect(url_for('home_page'), 302)
     elif url_validator(url) == True:
         u_s = urlparse(url)
         url_string = f'{u_s.scheme}://{u_s.hostname}'
     else:
         flash('Некорректный URL', 'danger')
-        return redirect(url_for('home_page'), 301)
+        return redirect(url_for('home_page'), 302)
 
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO urls (name, created_at) values(%(url)s, %(date_time)s)
-                ON CONFLICT (name) DO UPDATE
-                SET created_at=%(date_time)s;
-                """,
-                           {'url': url_string, 'date_time': datetime.today()})
-        conn.commit()
+        with psycopg2.connect(DATABASE_URL) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO urls (name, created_at) values(%(url)s, %(date_time)s)
+                    ON CONFLICT (name) DO UPDATE
+                    SET created_at=%(date_time)s;
+                    """,
+                               {'url': url_string, 'date_time': datetime.today()})
         conn.close()
     except OSError:
         print("bolt")
