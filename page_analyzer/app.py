@@ -1,5 +1,6 @@
 import os
 import psycopg2
+import psycopg2.extras
 from datetime import datetime
 from validators.url import url as url_validator
 from urllib.parse import urlparse
@@ -26,13 +27,12 @@ def home_page():
 @app.get('/urls')
 def urls_list():
     conn = psycopg2.connect(DATABASE_URL)
-    with conn.cursor() as cursor:
+    with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
         cursor.execute('SELECT id, name FROM URLS ORDER BY created_at ASC')
         urls = cursor.fetchall()
     conn.close()
 
     messages = get_flashed_messages(with_categories=True)
-
     return render_template(
         'pages/urls.html',
         messages=messages,
@@ -78,7 +78,7 @@ def add_urls():
 def url_profile(url_id):
     messages = get_flashed_messages(with_categories=True)
     conn = psycopg2.connect(DATABASE_URL)
-    with conn.cursor() as cursor:
+    with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
         cursor.execute(f'SELECT * FROM urls WHERE id={url_id}')
         url_data = cursor.fetchone()
     conn.close()
