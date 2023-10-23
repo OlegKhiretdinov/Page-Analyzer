@@ -6,6 +6,7 @@ from validators.url import url as url_validator
 from urllib.parse import urlparse
 from flask import Flask, render_template, redirect, request, url_for, flash, get_flashed_messages
 from dotenv import dotenv_values
+import requests
 
 app = Flask(__name__)
 
@@ -105,10 +106,17 @@ def url_checker(url_id):
     # request.form.
     conn = psycopg2.connect(DATABASE_URL)
     with conn.cursor() as cursor:
+        cursor.execute("SELECT name FROM urls WHERE id = %s", (int(url_id),))
+        url = cursor.fetchone()[0]
+    r = requests.get(url)
+    code = r.status_code
+    print(code)
+
+    with conn.cursor() as cursor:
         cursor.execute("""
-        INSERT INTO url_checks (url_id, created_at) values(%(url_id)s, %(date_time)s)
+        INSERT INTO url_checks (url_id, created_at, status_code) values(%(url_id)s, %(date_time)s, %(status_code)s)
         """,
-                       {'url_id': int(url_id), 'date_time': datetime.today()}
+                       {'url_id': int(url_id), 'date_time': datetime.today(), 'status_code': int(code)}
                        )
     conn.commit()
     conn.close()
