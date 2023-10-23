@@ -28,11 +28,16 @@ def home_page():
 def urls_list():
     conn = psycopg2.connect(DATABASE_URL)
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
-        cursor.execute('SELECT id, name FROM URLS ORDER BY created_at ASC')
+        cursor.execute('''SELECT DISTINCT ON (urls.id) urls.id, urls.name, url_checks.created_at, url_checks.status_code
+        FROM urls
+        LEFT JOIN url_checks ON urls.id = url_checks.url_id
+        ORDER BY urls.id, url_checks.created_at ASC;
+        ''')
         urls = cursor.fetchall()
-    conn.close()
 
+    conn.close()
     messages = get_flashed_messages(with_categories=True)
+    print(urls)
     return render_template(
         'pages/urls.html',
         messages=messages,
@@ -74,6 +79,7 @@ def add_urls():
     return redirect(url_for('urls_list'), 302)
 
 
+# страница профиля
 @app.route('/urls/<int:url_id>')
 def url_profile(url_id):
     messages = get_flashed_messages(with_categories=True)
@@ -81,10 +87,29 @@ def url_profile(url_id):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
         cursor.execute(f'SELECT * FROM urls WHERE id={url_id}')
         url_data = cursor.fetchone()
+    with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
+        cursor.execute(f'SELECT * FROM url_checks WHERE url_id={url_id}')
+        url_checks = cursor.fetchall()
     conn.close()
 
     return render_template(
         'pages/url_info.html',
         messages=messages,
-        url_data=url_data
+        url_data=url_data,
+        url_checks=url_checks
     )
+
+
+@app.post('/urls/<int:url_id>/checks')
+def url_checker(url_id):
+    # request.form.
+    conn = psycopg2.connect(DATABASE_URL)
+    with conn.cursor() as cursor:
+        cursor.execute("""
+        INSERT INTO url_checks (url_id, created_at) values(%(url_id)s, %(date_time)s)
+        """,
+                       {'url_id': int(url_id), 'date_time': datetime.today()}
+                       )
+    conn.commit()
+    conn.close()
+    return redirect(url_for('url_profile', url_id=url_id), 302)

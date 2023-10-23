@@ -18,11 +18,13 @@
     </tr>
     <tr>
         <td>Дата создания</td>
-        <td>{{url_data.created_at}}</td>
+        <td>{{url_data.created_at.strftime("%Y-%m-%d")}}</td>
     </tr>
 </table>
 <h2>Проверки</h2>
-<button type="submit" class="btn btn-primary">Запустить проверку</button>
+<form method="post" action="/urls/{{url_data.id}}/checks">
+    <input type="submit" class="btn btn-primary" value="Запустить проверку">
+    </form>
 <table class="table table-bordered table-hover mt-2" data-test="checks">
     <thead>
       <tr>
@@ -35,7 +37,16 @@
       </tr>
     </thead>
       <tbody>
-
+      {%for item in url_checks%}
+        <tr>
+            <td>{{item.url_id}}</td>
+            <td>{{item.status_code}}</td>
+            <td>{{item.h1}}</td>
+            <td>{{item.title}}</td>
+            <td>{{item.description}}</td>
+            <td>{{item.created_at.strftime("%Y-%m-%d")}}</td>
+        </tr>
+      {%endfor%}
     </tbody>
     </table>
 {% endblock %}
