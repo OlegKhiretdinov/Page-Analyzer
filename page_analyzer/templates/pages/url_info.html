@@ -44,7 +44,7 @@
             <td>{{item.h1}}</td>
             <td>{{item.title}}</td>
             <td>{{item.description}}</td>
-            <td>{{item.created_at.strftime("%Y-%m-%d")}}</td>
+            <td>{{item.created_at.strftime("%Y-%m-%d") if item.created_at else ""}}</td>
         </tr>
       {%endfor%}
     </tbody>

@@ -37,7 +37,7 @@ def urls_list():
 
     conn.close()
     messages = get_flashed_messages(with_categories=True)
-    print(urls)
+
     return render_template(
         'pages/urls.html',
         messages=messages,

@@ -21,7 +21,7 @@
                 <td>
                     <a href="/urls/{{item.id}}">{{item.name}}</a>
                 </td>
-                <td>{{item.created_at.strftime("%Y-%m-%d")}}</td>
+                <td>{{item.created_at.strftime("%Y-%m-%d") if item.created_at else ""}}</td>
                 <td>{{item.status_code}}</td>
             </tr>
         {%endfor%}
