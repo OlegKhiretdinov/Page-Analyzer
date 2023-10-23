@@ -31,7 +31,7 @@ def urls_list():
         cursor.execute('''SELECT DISTINCT ON (urls.id) urls.id, urls.name, url_checks.created_at, url_checks.status_code
         FROM urls
         LEFT JOIN url_checks ON urls.id = url_checks.url_id
-        ORDER BY urls.id, url_checks.created_at ASC;
+        ORDER BY urls.id, url_checks.created_at DESC;
         ''')
         urls = cursor.fetchall()
 
