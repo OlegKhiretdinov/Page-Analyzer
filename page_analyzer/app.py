@@ -92,7 +92,6 @@ def url_profile(url_id):
         cursor.execute(f'SELECT * FROM url_checks WHERE url_id={url_id}')
         url_checks = cursor.fetchall()
     conn.close()
-
     return render_template(
         'pages/url_info.html',
         messages=messages,
@@ -108,9 +107,13 @@ def url_checker(url_id):
     with conn.cursor() as cursor:
         cursor.execute("SELECT name FROM urls WHERE id = %s", (int(url_id),))
         url = cursor.fetchone()[0]
-    r = requests.get(url)
-    code = r.status_code
-    print(code)
+    code = 0
+    try:
+        r = requests.get(url)
+        code = r.status_code
+    except:
+        flash('Произошла ошибка при проверке', 'danger')
+        return redirect(url_for('url_profile', url_id=url_id), 302)
 
     with conn.cursor() as cursor:
         cursor.execute("""
@@ -120,4 +123,5 @@ def url_checker(url_id):
                        )
     conn.commit()
     conn.close()
+
     return redirect(url_for('url_profile', url_id=url_id), 302)

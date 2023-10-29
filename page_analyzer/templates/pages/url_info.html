@@ -40,10 +40,10 @@
       {%for item in url_checks%}
         <tr>
             <td>{{item.url_id}}</td>
-            <td>{{item.status_code}}</td>
-            <td>{{item.h1}}</td>
-            <td>{{item.title}}</td>
-            <td>{{item.description}}</td>
+            <td>{{item.status_code if item.status_code else ""}}</td>
+            <td>{{item.h1 if item.h1 else ""}}</td>
+            <td>{{item.title if item.title else ""}}</td>
+            <td>{{item.description if item.description else ""}}</td>
             <td>{{item.created_at.strftime("%Y-%m-%d") if item.created_at else ""}}</td>
         </tr>
       {%endfor%}
