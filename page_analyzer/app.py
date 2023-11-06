@@ -2,8 +2,6 @@ import os
 import psycopg2
 import psycopg2.extras
 from datetime import datetime
-
-import werkzeug.exceptions
 from validators.url import url as url_validator
 from urllib.parse import urlparse
 from flask import Flask, render_template, redirect, \
@@ -87,7 +85,7 @@ def add_urls():
                                })
         conn.close()
     except OSError:
-        print("bolt")
+        print("db_err")
 
     return redirect(url_for('urls_list'), 302)
 
@@ -180,6 +178,7 @@ def url_checker(url_id):
                        )
     conn.commit()
     conn.close()
+    flash('Страница успешно проверена', 'success')
 
     return redirect(url_for('url_profile', url_id=url_id), 302)
 
