@@ -7,10 +7,10 @@ from urllib.parse import urlparse
 from flask import Flask, render_template, redirect, request, url_for, flash, get_flashed_messages
 from dotenv import dotenv_values
 import requests
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-# todo wtf и как по уму
 app.secret_key = "secret_key"
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -48,9 +48,8 @@ def urls_list():
 
 @app.post('/urls')
 def add_urls():
-    # config = dotenv_values(".env")
     url = request.form.get('url')
-    # todo типизация
+
     if url == "":
         flash('URL обязателен', 'danger')
         return redirect(url_for('home_page'), 302)
@@ -107,19 +106,57 @@ def url_checker(url_id):
     with conn.cursor() as cursor:
         cursor.execute("SELECT name FROM urls WHERE id = %s", (int(url_id),))
         url = cursor.fetchone()[0]
-    code = 0
+
     try:
         r = requests.get(url)
         code = r.status_code
+
+        page_content = BeautifulSoup(r.text)
+        print(str(page_content.h1))
+        title = ''
+        h1 = ''
+        description = ''
+
+        title_element = page_content.title
+        if title_element:
+            title = title_element.text
+
+        h1_element = page_content.h1
+        if h1_element:
+            h1 = h1_element.text
+
+        page_meta = page_content.findAll('meta')
+        for el in page_meta:
+            if el.get('name') == 'description':
+                description = el.get('content')
     except:
         flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('url_profile', url_id=url_id), 302)
 
     with conn.cursor() as cursor:
-        cursor.execute("""
-        INSERT INTO url_checks (url_id, created_at, status_code) values(%(url_id)s, %(date_time)s, %(status_code)s)
-        """,
-                       {'url_id': int(url_id), 'date_time': datetime.today(), 'status_code': int(code)}
+        cursor.execute("""INSERT INTO url_checks (
+                            url_id,
+                            created_at,
+                            status_code,
+                            h1,
+                            title,
+                            description
+                        ) values (
+                            %(url_id)s,
+                            %(date_time)s,
+                            %(status_code)s,
+                            %(h1)s,
+                            %(title)s,
+                            %(description)s
+                        )""",
+                       {
+                           'url_id': int(url_id),
+                           'date_time': datetime.today(),
+                           'status_code': int(code),
+                           'h1': h1,
+                           'title': title,
+                           'description': description
+                       }
                        )
     conn.commit()
     conn.close()
