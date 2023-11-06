@@ -39,7 +39,7 @@
       <tbody>
       {%for item in url_checks%}
         <tr>
-            <td>{{item.url_id}}</td>
+            <td>{{item.id}}</td>
             <td>{{item.status_code if item.status_code else ""}}</td>
             <td>{{item.h1 if item.h1 else ""}}</td>
             <td>{{item.title if item.title else ""}}</td>
