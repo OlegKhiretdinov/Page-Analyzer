@@ -2,6 +2,8 @@ import os
 import psycopg2
 import psycopg2.extras
 from datetime import datetime
+
+import werkzeug.exceptions
 from validators.url import url as url_validator
 from urllib.parse import urlparse
 from flask import Flask, render_template, redirect, \
@@ -106,6 +108,10 @@ def url_profile(url_id):
         cursor.execute(f'SELECT * FROM url_checks WHERE url_id={url_id}')
         url_checks = cursor.fetchall()
     conn.close()
+
+    if not url_data:
+        return handle_bad_request("404 id not found")
+
     return render_template(
         'pages/url_info.html',
         messages=messages,
@@ -176,3 +182,11 @@ def url_checker(url_id):
     conn.close()
 
     return redirect(url_for('url_profile', url_id=url_id), 302)
+
+
+def handle_bad_request(e):
+    print(e)
+    return render_template('pages/404.html'), 404
+
+
+app.register_error_handler(404, handle_bad_request)
