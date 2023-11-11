@@ -1,6 +1,8 @@
 import os
 import psycopg2
 import psycopg2.extras
+import psycopg2.errors
+from psycopg2.errorcodes import UNIQUE_VIOLATION
 from datetime import datetime
 from validators.url import url as url_validator
 from urllib.parse import urlparse
@@ -70,24 +72,33 @@ def add_urls():
         flash('Некорректный URL', 'danger')
         return redirect(url_for('home_page'), 302)
 
-    try:
-        with psycopg2.connect(DATABASE_URL) as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO urls (name, created_at)
-                    values(%(url)s, %(date_time)s)
-                    ON CONFLICT (name) DO UPDATE
-                    SET created_at=%(date_time)s;
-                    """,
-                               {
-                                   'url': url_string,
-                                   'date_time': datetime.today()
-                               })
-        conn.close()
-    except OSError:
-        print("db_err")
+    correct_url_flash_text = 'Страница успешно добавлена'
+    correct_url_flash_status = 'success'
 
-    return redirect(url_for('urls_list'), 302)
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO urls (name, created_at)
+                values(%(url)s, %(date_time)s)
+            """,
+                           {
+                               'url': url_string,
+                               'date_time': datetime.today()
+                           })
+    except psycopg2.errors.lookup(UNIQUE_VIOLATION):
+        correct_url_flash_text = 'Страница уже существует'
+        correct_url_flash_status = 'info'
+    conn.commit()
+
+    with conn.cursor() as cursor:
+        cursor.execute(f"SELECT id FROM urls WHERE name='{url_string}'")
+        url_id = cursor.fetchone()[0]
+
+    conn.close()
+
+    flash(correct_url_flash_text, correct_url_flash_status)
+    return redirect(url_for('url_profile', url_id=url_id), 302)
 
 
 # страница профиля
@@ -120,7 +131,6 @@ def url_profile(url_id):
 
 @app.post('/urls/<int:url_id>/checks')
 def url_checker(url_id):
-    # request.form.
     conn = psycopg2.connect(DATABASE_URL)
     with conn.cursor() as cursor:
         cursor.execute("SELECT name FROM urls WHERE id = %s", (int(url_id),))
