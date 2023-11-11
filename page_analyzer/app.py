@@ -10,12 +10,14 @@ from flask import Flask, render_template, redirect, \
     request, url_for, flash, get_flashed_messages, make_response
 import requests
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 
 app.secret_key = "secret_key"
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+load_dotenv()
+DATABASE_URL = os.getenv('DATABASE_URL')
 
 
 @app.route('/')
