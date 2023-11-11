@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <title>{% block title %}{% endblock %}</title>
 </head>
-<body>
+<body class="min-vh-100 d-flex flex-column">
     <nav>
         <ul class="nav justify-content-center">
             <li class="nav-item">
@@ -16,8 +16,15 @@
             </li>
         </ul>
     </nav>
-    <main>
+    <main class="flex-grow-1">
         {% block main %}{% endblock %}
     </main>
+<footer class="border-top py-3 mt-5 flex-shrink-0">
+  <div class="container-lg">
+    <div class="text-center">
+      <a href="https://ru.hexlet.io/" target="_blank">Hexlet</a>
+    </div>
+  </div>
+</footer>
 </body>
 </html>
