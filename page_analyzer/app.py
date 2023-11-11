@@ -68,6 +68,8 @@ def add_urls():
     elif url_validator(url) is True:
         u_s = urlparse(url)
         url_string = f'{u_s.scheme}://{u_s.hostname}'
+        if u_s.port:
+            url_string += f':{u_s.port}'
     else:
         flash('Некорректный URL', 'danger')
         return redirect(url_for('home_page'), 302)
