@@ -7,7 +7,7 @@ from datetime import datetime
 from validators.url import url as url_validator
 from urllib.parse import urlparse
 from flask import Flask, render_template, redirect, \
-    request, url_for, flash, get_flashed_messages
+    request, url_for, flash, get_flashed_messages, make_response
 import requests
 from bs4 import BeautifulSoup
 
@@ -20,11 +20,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 @app.route('/')
 def home_page():
-    messages = get_flashed_messages(with_categories=True)
-    return render_template(
-        'pages/home.html',
-        messages=messages
-    )
+    return render_template('pages/home.html',)
 
 
 @app.get('/urls')
@@ -61,10 +57,10 @@ def add_urls():
 
     if url == "":
         flash('URL обязателен', 'danger')
-        return redirect(url_for('home_page'), 302)
+        return make_response(render_template('pages/home.html', url_name=url), 422)
     elif len(url) > 255:
         flash('URL превышает 255 символов', 'danger')
-        return redirect(url_for('home_page'), 302)
+        return make_response(render_template('pages/home.html', url_name=url), 422)
     elif url_validator(url) is True:
         u_s = urlparse(url)
         url_string = f'{u_s.scheme}://{u_s.hostname}'
@@ -72,7 +68,7 @@ def add_urls():
             url_string += f':{u_s.port}'
     else:
         flash('Некорректный URL', 'danger')
-        return redirect(url_for('home_page'), 302)
+        return make_response(render_template('pages/home.html', url_name=url), 422)
 
     correct_url_flash_text = 'Страница успешно добавлена'
     correct_url_flash_status = 'success'
@@ -196,7 +192,6 @@ def url_checker(url_id):
 
 
 def handle_bad_request(e):
-    print(e)
     return render_template('pages/404.html'), 404
 
 
