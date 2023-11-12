@@ -72,9 +72,6 @@ def add_urls():
         flash('Некорректный URL', 'danger')
         return make_response(render_template('pages/home.html', url_name=url), 422)
 
-    correct_url_flash_text = 'Страница успешно добавлена'
-    correct_url_flash_status = 'success'
-
     conn = psycopg2.connect(DATABASE_URL)
 
     with conn.cursor() as cursor:
@@ -83,8 +80,7 @@ def add_urls():
 
         if req_data is not None:
             url_id = req_data[0]
-            correct_url_flash_text = 'Страница уже существует'
-            correct_url_flash_status = 'info'
+            flash('Страница уже существует', 'info')
         else:
             cursor.execute("""
                             INSERT INTO urls (name, created_at)
@@ -97,10 +93,10 @@ def add_urls():
                            })
             url_id = cursor.fetchone()[0]
             conn.commit()
+            flash('Страница успешно добавлена', 'success')
 
     conn.close()
 
-    flash(correct_url_flash_text, correct_url_flash_status)
     return redirect(url_for('url_profile', url_id=url_id), 302)
 
 
