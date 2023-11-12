@@ -75,13 +75,7 @@ def add_urls():
     conn = psycopg2.connect(DATABASE_URL)
 
     with conn.cursor() as cursor:
-        cursor.execute(f"SELECT id FROM urls WHERE name='{url_string}'")
-        req_data = cursor.fetchone()
-
-        if req_data is not None:
-            url_id = req_data[0]
-            flash('Страница уже существует', 'info')
-        else:
+        try:
             cursor.execute("""
                             INSERT INTO urls (name, created_at)
                             values(%(url)s, %(date_time)s)
@@ -94,6 +88,11 @@ def add_urls():
             url_id = cursor.fetchone()[0]
             conn.commit()
             flash('Страница успешно добавлена', 'success')
+        except psycopg2.errors.lookup(UNIQUE_VIOLATION):
+            conn.rollback()
+            cursor.execute(f"SELECT id FROM urls WHERE name='{url_string}'")
+            url_id = cursor.fetchone()[0]
+            flash('Страница уже существует', 'info')
 
     conn.close()
 
