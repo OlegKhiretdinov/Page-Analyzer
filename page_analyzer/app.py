@@ -147,7 +147,7 @@ def url_checker(url_id):
             flash('Произошла ошибка при проверке', 'danger')
             return redirect(url_for('url_profile', url_id=url_id), 302)
 
-        page_content = BeautifulSoup(r.text)
+        page_content = BeautifulSoup(r.text, features="html.parser")
 
         title = ''
         h1 = ''
