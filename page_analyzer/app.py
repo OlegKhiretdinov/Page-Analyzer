@@ -139,6 +139,11 @@ def url_checker(url_id):
     try:
         r = requests.get(url)
         code = r.status_code
+
+        if code >= 500:
+            flash('Произошла ошибка при проверке', 'danger')
+            return redirect(url_for('url_profile', url_id=url_id), 302)
+
         page_content = BeautifulSoup(r.text)
 
         title = ''
