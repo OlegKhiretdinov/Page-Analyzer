@@ -8,7 +8,6 @@
 {% endif %}
 <h1>Сайты</h1>
 <table class="table table-bordered table-hover text-nowrap" data-test="urls">
-    {%endfor%}
     <thead>
     <tr>
         <th>ID</th>
@@ -27,6 +26,7 @@
             <td>{{item.created_at.strftime("%Y-%m-%d") if item.created_at else ""}}</td>
             <td>{{item.status_code if item.status_code else ""}}</td>
         </tr>
+        {%endfor%}
     </tbody>
 </table>
 
