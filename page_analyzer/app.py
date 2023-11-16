@@ -7,9 +7,8 @@ from datetime import datetime
 from flask import Flask, render_template, redirect, \
     request, url_for, flash, get_flashed_messages, make_response
 import requests
-from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from page_analyzer.utils import url_validate, prepare_url
+from page_analyzer.utils import url_validate, prepare_url, parse_html
 
 app = Flask(__name__)
 
@@ -134,24 +133,8 @@ def url_checker(url_id):
             flash('Произошла ошибка при проверке', 'danger')
             return redirect(url_for('url_profile', url_id=url_id), 302)
 
-        page_content = BeautifulSoup(r.text, features="html.parser")
+        title, h1, description = parse_html(r.text)
 
-        title = ''
-        h1 = ''
-        description = ''
-
-        title_element = page_content.title
-        if title_element:
-            title = title_element.text
-
-        h1_element = page_content.h1
-        if h1_element:
-            h1 = h1_element.text
-
-        page_meta = page_content.findAll('meta')
-        for el in page_meta:
-            if el.get('name') == 'description':
-                description = el.get('content')
     except OSError:
         flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('url_profile', url_id=url_id), 302)
