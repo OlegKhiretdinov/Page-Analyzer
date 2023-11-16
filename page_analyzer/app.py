@@ -3,19 +3,19 @@ import psycopg2
 import psycopg2.extras
 import psycopg2.errors
 from psycopg2.errorcodes import UNIQUE_VIOLATION
-from datetime import datetime
 from flask import Flask, render_template, redirect, \
     request, url_for, flash, get_flashed_messages, make_response
 import requests
 from dotenv import load_dotenv
 from page_analyzer.utils import url_validate, prepare_url, parse_html
+from page_analyzer.bd_query import urls_list_query, add_url_query, \
+    get_url_data_query, get_url_checks_query, insert_check_result_query
+
 
 app = Flask(__name__)
-
-app.secret_key = "secret_key"
-
 load_dotenv()
-DATABASE_URL = os.getenv('DATABASE_URL')
+SECRET_KEY = os.getenv('SECRET_KEY')
+app.secret_key = "SECRET_KEY"
 
 
 @app.route('/')
@@ -25,23 +25,7 @@ def home_page():
 
 @app.get('/urls')
 def urls_list():
-    conn = psycopg2.connect(DATABASE_URL)
-    with conn.cursor(
-            cursor_factory=psycopg2.extras.NamedTupleCursor
-    ) as cursor:
-        cursor.execute('''
-            SELECT DISTINCT ON (urls.id)
-            urls.id,
-            urls.name,
-            url_checks.created_at,
-            url_checks.status_code
-            FROM urls
-            LEFT JOIN url_checks ON urls.id = url_checks.url_id
-            ORDER BY urls.id, url_checks.created_at DESC;
-        ''')
-        urls = cursor.fetchall()
-
-    conn.close()
+    urls = urls_list_query()
     messages = get_flashed_messages(with_categories=True)
 
     return render_template(
@@ -54,7 +38,6 @@ def urls_list():
 @app.post('/urls')
 def add_urls():
     url = request.form.get('url')
-
     is_valid, error_txt = url_validate(url)
 
     if not is_valid:
@@ -63,49 +46,22 @@ def add_urls():
     else:
         url_string = prepare_url(url)
 
-    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        url_data = add_url_query(url_string)
+        flash('Страница успешно добавлена', 'success')
+    except psycopg2.errors.lookup(UNIQUE_VIOLATION):
+        url_data = get_url_data_query(['id'], f"name='{url_string}'")
+        flash('Страница уже существует', 'info')
 
-    with conn.cursor() as cursor:
-        try:
-            cursor.execute("""
-                            INSERT INTO urls (name, created_at)
-                            values(%(url)s, %(date_time)s)
-                            RETURNING id
-                        """,
-                           {
-                               'url': url_string,
-                               'date_time': datetime.today()
-                           })
-            url_id = cursor.fetchone()[0]
-            conn.commit()
-            flash('Страница успешно добавлена', 'success')
-        except psycopg2.errors.lookup(UNIQUE_VIOLATION):
-            conn.rollback()
-            cursor.execute(f"SELECT id FROM urls WHERE name='{url_string}'")
-            url_id = cursor.fetchone()[0]
-            flash('Страница уже существует', 'info')
-
-    conn.close()
-
-    return redirect(url_for('url_profile', url_id=url_id), 302)
+    return redirect(url_for('url_profile', url_id=url_data.id), 302)
 
 
 # страница профиля
 @app.route('/urls/<int:url_id>')
 def url_profile(url_id):
     messages = get_flashed_messages(with_categories=True)
-    conn = psycopg2.connect(DATABASE_URL)
-    with conn.cursor(
-            cursor_factory=psycopg2.extras.NamedTupleCursor
-    ) as cursor:
-        cursor.execute(f'SELECT * FROM urls WHERE id={url_id}')
-        url_data = cursor.fetchone()
-    with conn.cursor(
-            cursor_factory=psycopg2.extras.NamedTupleCursor
-    ) as cursor:
-        cursor.execute(f'SELECT * FROM url_checks WHERE url_id={url_id}')
-        url_checks = cursor.fetchall()
-    conn.close()
+    url_data = get_url_data_query(['*'], f"id={url_id}")
+    url_checks = get_url_checks_query(url_id)
 
     if not url_data:
         return handle_bad_request("404 id not found")
@@ -120,13 +76,10 @@ def url_profile(url_id):
 
 @app.post('/urls/<int:url_id>/checks')
 def url_checker(url_id):
-    conn = psycopg2.connect(DATABASE_URL)
-    with conn.cursor() as cursor:
-        cursor.execute("SELECT name FROM urls WHERE id = %s", (int(url_id),))
-        url = cursor.fetchone()[0]
+    url_data = get_url_data_query(['name'], f"id={url_id}")
 
     try:
-        r = requests.get(url)
+        r = requests.get(url_data.name)
         code = r.status_code
 
         if code >= 500:
@@ -139,33 +92,7 @@ def url_checker(url_id):
         flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('url_profile', url_id=url_id), 302)
 
-    with conn.cursor() as cursor:
-        cursor.execute("""INSERT INTO url_checks (
-                            url_id,
-                            created_at,
-                            status_code,
-                            h1,
-                            title,
-                            description
-                        ) values (
-                            %(url_id)s,
-                            %(date_time)s,
-                            %(status_code)s,
-                            %(h1)s,
-                            %(title)s,
-                            %(description)s
-                        )""",
-                       {
-                           'url_id': int(url_id),
-                           'date_time': datetime.today(),
-                           'status_code': int(code),
-                           'h1': h1,
-                           'title': title,
-                           'description': description
-                       }
-                       )
-    conn.commit()
-    conn.close()
+    insert_check_result_query(url_id, code, h1, title, description)
     flash('Страница успешно проверена', 'success')
 
     return redirect(url_for('url_profile', url_id=url_id), 302)
