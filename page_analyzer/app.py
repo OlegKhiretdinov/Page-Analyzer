@@ -53,7 +53,7 @@ def add_urls():
         url_data = add_url_query(url_string, connections)
         flash('Страница успешно добавлена', 'success')
     except psycopg2.errors.lookup(UNIQUE_VIOLATION):
-        url_data = get_url_data_query(['id'], f"name='{url_string}'")
+        url_data = get_url_data_query(['id'], f"name='{url_string}'", connections)
         flash('Страница уже существует', 'info')
 
     return redirect(url_for('url_profile', url_id=url_data.id), 302)
