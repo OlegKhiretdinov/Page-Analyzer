@@ -1,7 +1,6 @@
 import os
 import psycopg2
-import psycopg2.extras
-import psycopg2.errors
+from psycopg2 import pool
 from psycopg2.errorcodes import UNIQUE_VIOLATION
 from flask import Flask, render_template, redirect, \
     request, url_for, flash, get_flashed_messages, make_response
@@ -14,8 +13,12 @@ from page_analyzer.bd_query import urls_list_query, add_url_query, \
 
 app = Flask(__name__)
 load_dotenv()
+
 SECRET_KEY = os.getenv('SECRET_KEY')
-app.secret_key = "SECRET_KEY"
+app.secret_key = SECRET_KEY
+
+DATABASE_URL = os.getenv('DATABASE_URL')
+connections = pool.SimpleConnectionPool(1, 100, DATABASE_URL)
 
 
 @app.route('/')
@@ -25,7 +28,7 @@ def home_page():
 
 @app.get('/urls')
 def urls_list():
-    urls = urls_list_query()
+    urls = urls_list_query(connections)
     messages = get_flashed_messages(with_categories=True)
 
     return render_template(
@@ -47,7 +50,7 @@ def add_urls():
         url_string = prepare_url(url)
 
     try:
-        url_data = add_url_query(url_string)
+        url_data = add_url_query(url_string, connections)
         flash('Страница успешно добавлена', 'success')
     except psycopg2.errors.lookup(UNIQUE_VIOLATION):
         url_data = get_url_data_query(['id'], f"name='{url_string}'")
@@ -60,8 +63,8 @@ def add_urls():
 @app.route('/urls/<int:url_id>')
 def url_profile(url_id):
     messages = get_flashed_messages(with_categories=True)
-    url_data = get_url_data_query(['*'], f"id={url_id}")
-    url_checks = get_url_checks_query(url_id)
+    url_data = get_url_data_query(['*'], f"id={url_id}", connections)
+    url_checks = get_url_checks_query(url_id, connections)
 
     if not url_data:
         return handle_bad_request("404 id not found")
@@ -76,7 +79,7 @@ def url_profile(url_id):
 
 @app.post('/urls/<int:url_id>/checks')
 def url_checker(url_id):
-    url_data = get_url_data_query(['name'], f"id={url_id}")
+    url_data = get_url_data_query(['name'], f"id={url_id}", connections)
 
     try:
         r = requests.get(url_data.name)
@@ -92,7 +95,7 @@ def url_checker(url_id):
         flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('url_profile', url_id=url_id), 302)
 
-    insert_check_result_query(url_id, code, h1, title, description)
+    insert_check_result_query(url_id, code, h1, title, description, connections)
     flash('Страница успешно проверена', 'success')
 
     return redirect(url_for('url_profile', url_id=url_id), 302)
