@@ -1,15 +1,13 @@
 import os
-import psycopg2
-from psycopg2 import pool
-from psycopg2.errorcodes import UNIQUE_VIOLATION
+from datetime import datetime
 from flask import Flask, render_template, redirect, \
     request, url_for, flash, get_flashed_messages, make_response
+from sqlalchemy import create_engine, select, exc
+from sqlalchemy.orm import Session
 import requests
 from dotenv import load_dotenv
 from page_analyzer.utils import url_validate, prepare_url, parse_html
-from page_analyzer.bd_query import urls_list_query, add_url_query, \
-    get_url_data_query, get_url_checks_query, insert_check_result_query
-
+from page_analyzer.models import UrlsModel, UrlChecksModel
 
 app = Flask(__name__)
 load_dotenv()
@@ -18,7 +16,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 app.secret_key = SECRET_KEY
 
 DATABASE_URL = os.getenv('DATABASE_URL')
-connections = pool.SimpleConnectionPool(1, 100, DATABASE_URL)
+engine = create_engine(f'postgresql://{DATABASE_URL}', echo=True)
 
 
 @app.route('/')
@@ -26,9 +24,17 @@ def home_page():
     return render_template('pages/home.html',)
 
 
+# список урлов
 @app.get('/urls')
 def urls_list():
-    urls = urls_list_query(connections)
+    with Session(engine) as session:
+        query = select(UrlsModel.id, UrlsModel.name, UrlChecksModel.status_code, UrlChecksModel.created_at)\
+            .distinct(UrlsModel.id)\
+            .join(UrlChecksModel, isouter=True)\
+            .order_by(UrlsModel.id, UrlChecksModel.created_at.desc())\
+            .limit(30)
+        urls = session.execute(query).all()
+
     messages = get_flashed_messages(with_categories=True)
 
     return render_template(
@@ -38,6 +44,7 @@ def urls_list():
     )
 
 
+# добавление url
 @app.post('/urls')
 def add_urls():
     url = request.form.get('url')
@@ -50,39 +57,57 @@ def add_urls():
         url_string = prepare_url(url)
 
     try:
-        url_data = add_url_query(url_string, connections)
-        flash('Страница успешно добавлена', 'success')
-    except psycopg2.errors.lookup(UNIQUE_VIOLATION):
-        url_data = get_url_data_query(['id'], f"name='{url_string}'", connections)
-        flash('Страница уже существует', 'info')
+        with Session(engine) as session:
+            new_url = UrlsModel(name=url_string, created_at=datetime.today())
+            session.add(new_url)
+            session.commit()
 
-    return redirect(url_for('url_profile', url_id=url_data.id), 302)
+            redirect_url_id = new_url.id
+            flash('Страница успешно добавлена', 'success')
+    except exc.IntegrityError as ex:
+        if "UniqueViolation" in ex.__repr__():
+            with Session(engine) as session:
+                query = select(UrlsModel.id).where(UrlsModel.name == url_string)
+                redirect_url_id = session.scalar(query)
+            flash('Страница уже существует', 'info')
+        else:
+            raise
+
+    return redirect(url_for('url_profile', url_id=redirect_url_id), 302)
 
 
-# страница профиля
+# профиль url и список проверок
 @app.route('/urls/<int:url_id>')
 def url_profile(url_id):
     messages = get_flashed_messages(with_categories=True)
-    url_data = get_url_data_query(['*'], f"id={url_id}", connections)
-    url_checks = get_url_checks_query(url_id, connections)
 
-    if not url_data:
-        return handle_bad_request("404 id not found")
+    with Session(engine) as session:
+        query_data = select(UrlsModel).where(UrlsModel.id == url_id)
+        url_data = session.execute(query_data).fetchone()
+
+        if not url_data:
+            return handle_bad_request("404 id not found")
+
+        query_checks = select(UrlChecksModel).where(UrlChecksModel.url_id == url_id)
+        url_checks = map(lambda item: item.UrlChecksModel, session.execute(query_checks).fetchall())
 
     return render_template(
         'pages/url_info.html',
         messages=messages,
-        url_data=url_data,
+        url_data=url_data.UrlsModel,
         url_checks=url_checks
     )
 
 
+# проверка url
 @app.post('/urls/<int:url_id>/checks')
 def url_checker(url_id):
-    url_data = get_url_data_query(['name'], f"id={url_id}", connections)
+    with Session(engine) as session:
+        query = select(UrlsModel.name).where(UrlsModel.id == url_id)
+        url_name = session.scalar(query)
 
     try:
-        r = requests.get(url_data.name)
+        r = requests.get(url_name)
         code = r.status_code
 
         if code >= 500:
@@ -95,9 +120,18 @@ def url_checker(url_id):
         flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('url_profile', url_id=url_id), 302)
 
-    insert_check_result_query(url_id, code, h1, title, description, connections)
-    flash('Страница успешно проверена', 'success')
+    with Session(engine) as session:
+        url_check = UrlChecksModel(url_id=url_id,
+                                   status_code=code,
+                                   h1=h1,
+                                   title=title,
+                                   description=description,
+                                   created_at=datetime.today(),
+                                   )
+        session.add(url_check)
+        session.commit()
 
+    flash('Страница успешно проверена', 'success')
     return redirect(url_for('url_profile', url_id=url_id), 302)
 
 
