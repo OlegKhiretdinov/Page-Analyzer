@@ -27,12 +27,14 @@ def home_page():
 # список урлов
 @app.get('/urls')
 def urls_list():
+    limit = int(request.values.get("limit", 10))
+    page = int(request.values.get("page", 1))
     with Session(engine) as session:
         query = select(UrlsModel.id, UrlsModel.name, UrlChecksModel.status_code, UrlChecksModel.created_at)\
             .distinct(UrlsModel.id)\
             .join(UrlChecksModel, isouter=True)\
             .order_by(UrlsModel.id, UrlChecksModel.created_at.desc())\
-            .limit(30)
+            .limit(limit).offset(limit * (page - 1))
         urls = session.execute(query).all()
 
     messages = get_flashed_messages(with_categories=True)
