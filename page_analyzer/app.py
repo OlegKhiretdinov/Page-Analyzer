@@ -4,10 +4,10 @@ from flask import Flask, render_template, redirect, \
     request, url_for, flash, get_flashed_messages, make_response
 from sqlalchemy import create_engine, select, exc
 from sqlalchemy.orm import Session
-import requests
 from dotenv import load_dotenv
-from page_analyzer.utils import url_validate, prepare_url, parse_html
+from page_analyzer.utils import url_validate, prepare_url
 from page_analyzer.models import UrlsModel, UrlChecksModel
+from page_analyzer.tasks import url_check_task
 
 app = Flask(__name__)
 load_dotenv()
@@ -108,32 +108,9 @@ def url_checker(url_id):
         query = select(UrlsModel.name).where(UrlsModel.id == url_id)
         url_name = session.scalar(query)
 
-    try:
-        r = requests.get(url_name)
-        code = r.status_code
+    url_check_task.delay(url_name, url_id)
+    flash('Url проверяется', 'info')
 
-        if code >= 500:
-            flash('Произошла ошибка при проверке', 'danger')
-            return redirect(url_for('url_profile', url_id=url_id), 302)
-
-        title, h1, description = parse_html(r.text)
-
-    except OSError:
-        flash('Произошла ошибка при проверке', 'danger')
-        return redirect(url_for('url_profile', url_id=url_id), 302)
-
-    with Session(engine) as session:
-        url_check = UrlChecksModel(url_id=url_id,
-                                   status_code=code,
-                                   h1=h1,
-                                   title=title,
-                                   description=description,
-                                   created_at=datetime.today(),
-                                   )
-        session.add(url_check)
-        session.commit()
-
-    flash('Страница успешно проверена', 'success')
     return redirect(url_for('url_profile', url_id=url_id), 302)
 
 
